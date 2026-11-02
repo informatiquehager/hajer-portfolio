@@ -40,3 +40,42 @@ document.querySelectorAll('[data-copy]').forEach(button => button.addEventListen
     setTimeout(() => { button.textContent = previous; }, 1800);
   } catch { button.textContent = 'حدّد البريد لنسخه'; }
 }));
+
+// Scroll indication and contextual navigation, without external libraries.
+const progressBar = document.querySelector('.reading-progress');
+let scrollScheduled = false;
+function updateReadingProgress() {
+  const maximum = document.documentElement.scrollHeight - window.innerHeight;
+  if (progressBar) progressBar.style.width = (maximum > 0 ? Math.min(100, (window.scrollY / maximum) * 100) : 0) + '%';
+  scrollScheduled = false;
+}
+window.addEventListener('scroll', () => {
+  if (!scrollScheduled) { window.requestAnimationFrame(updateReadingProgress); scrollScheduled = true; }
+}, { passive: true });
+updateReadingProgress();
+if ('IntersectionObserver' in window) {
+  const navLinks = [...document.querySelectorAll('#primary-nav a[href^="#"]')];
+  const navObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => link.removeAttribute('aria-current'));
+        navLinks.find(link => link.getAttribute('href') === '#' + entry.target.id)?.setAttribute('aria-current', 'location');
+      }
+    });
+  }, { rootMargin: '-28% 0px -60% 0px' });
+  document.querySelectorAll('main section[id]').forEach(section => navObserver.observe(section));
+}
+const shareButton = document.querySelector('.share-site');
+shareButton?.addEventListener('click', async () => {
+  const url = window.location.href.split('#')[0];
+  try {
+    if (navigator.share) await navigator.share({ title: document.title, url });
+    else if (navigator.clipboard) { await navigator.clipboard.writeText(url); shareButton.textContent = 'تم نسخ رابط الموقع'; setTimeout(() => shareButton.textContent = 'مشاركة الموقع ↗', 2000); }
+    else window.prompt('انسخ رابط الموقع:', url);
+  } catch (error) { if (error.name !== 'AbortError') window.prompt('انسخ رابط الموقع:', url); }
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && navigation?.classList.contains('open')) {
+    navigation.classList.remove('open'); menuButton?.setAttribute('aria-expanded', 'false'); menuButton?.focus();
+  }
+});
